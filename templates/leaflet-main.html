@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>{{title}}</title>
+    <meta name="og:image" content="{{preview_image_url}}" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.3/leaflet.css" integrity="sha256-iYUgmrapfDGvBrePJPrMWQZDcObdAcStKBpjP3Az+3s=" crossorigin="anonymous" />
+
+    <style type="text/css">
+        html {
+            height: 100%
+        }
+
+        body {
+            height: 100%;
+            margin: 0px;
+            padding: 0px
+        }
+
+        #map {
+            height: 100%;
+            z-index: 0;
+            background-color: rgb(27, 44, 51) !important;
+        }
+
+        #gmnoprint {
+            width: auto;
+        }
+
+        /* DOWN BUTTON CSS */
+        #downBtn {
+            position: fixed;
+            /* Fixed/sticky position */
+            bottom: 0px;
+            /* Place the button at the bottom of the page */
+            right: 50%;
+            transform: translate(50%, 0);
+            z-index: 99;
+            /* Make sure it does not overlap */
+            border: none;
+            /* Remove borders */
+            outline: none;
+            /* Remove outline */
+            background-color: chocolate;
+            /* Set a background color */
+            color: white;
+            /* Text color */
+            cursor: pointer;
+            /* Add a mouse pointer on hover */
+            padding: 5px;
+            /* Some padding */
+            border-radius: 7px;
+            /* Rounded corners */
+            font-size: 18px;
+            /* Increase font size */
+        }
+
+        #downBtn:hover {
+            background-color: #555;
+            /* Add a dark-grey background on hover */
+        }
+
+        /* FANCY DOWNLOAD CSS */
+        #modal {
+            display: none;
+            position: absolute;
+            top: 150px;
+            bottom: 30px;
+            background-color: rgb(27, 45, 51);
+            padding: 20px;
+            z-index: 100;
+            width: 400px;
+            right: 50%;
+            margin-right: -200px;
+            border: none;
+            border-radius: 5px;
+            color: #C6FFFD;
+        }
+
+        #modal.open {
+            display: block;
+        }
+
+        #modal ul li {
+            list-style-type: none;
+            margin-bottom: 5px;
+        }
+
+        #modal .close {
+            cursor: pointer;
+            float: right;
+            margin-top: -20px;
+        }
+
+        #modal .title {
+            font-size: 2em;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        #modal .mapLayerLink {
+            float: right;
+            padding: 0px 25px;
+            background-color: chocolate;
+            color: #CFFFFD;
+            border-radius: 8px;
+            line-height: 35px;
+        }
+
+        #modal .mapLayerLink.disabled {
+            background-color: grey;
+            cursor: not-allowed;
+        }
+
+        #modal .mapLayerLink:hover {
+            background-color: #555;
+        }
+
+        hr.clear {
+            clear: both;
+            float: none;
+            border: 0;
+            width: 0;
+            height: 0;
+            padding: 0;
+            margin: 0;
+        }
+
+        #modal .body {
+            overflow-y: auto;
+            max-height: 92%;
+        }
+
+        /* END FANCY DOWNLOAD CSS */
+        /* {{custom_css}} */
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.3/leaflet.js" integrity="sha256-lwWHyfIX653fxmxYjZUYOSM7ufWv6dMT8ISVuTWwoOY=" crossorigin="anonymous"></script>
+    <script src="https://factoriomaps.com/assets/js/leaflet/plugins/leaflet-fullHash/0.1.0/leaflet-fullHash.min.js"></script>
+    <link href="https://factoriomaps.com/assets/js/leaflet/plugins/leaflet-fullscreen/1.0.1/leaflet.fullscreen.css" rel="stylesheet"/>
+    <script src="https://factoriomaps.com/assets/js/leaflet/plugins/leaflet-fullscreen/1.0.1/Leaflet.fullscreen.min.js"></script>
+</head>
+
+<body>
+    <!-- FANCY DOWNLOAD -->
+    <div id="buttonAnchor"></div>
+    <div id="modal">
+        <div class="title">
+            Download the world saves <span class="close" title="Close">x</span>
+        </div>
+        <div class="body">
+            This maps has multiple layers available, which means there can be multiple saves available. Please select the one you wish
+            to download :
+            <ul id="save-download-container"></ul>
+        </div>
+    </div>
+    <!-- END FANCY DOWNLOAD -->
+    {{custom_buttons}}
+    <div id="map" style="background: #1B2D33;"></div>
+    <script>
+        var m = JSON.parse('{{map_json}}')
+        var minZoom = 20;
+        for (i = 0; i < m.meta.map.layers.length; i++) {
+            var z = m.meta.map.layers[i].zoom.min;
+            if(z < minZoom){
+                minZoom = z;
+            }
+        }
+        minZoom = minZoom - 2;
+        if(minZoom < 1){
+            minZoom = 1;
+        }
+        var layers = {}, saves = [], countAvailableSaves = 0;
+        for (i = 0; i < m.meta.map.layers.length; i++) {
+            layer = m.meta.map.layers[i];
+            var tileUrl = layer.tiles.url;
+            if (location.host !== "") {
+                tileUrl = "https://factoriomaps.com/" + m.meta.map.path + "/" + tileUrl;
+            }
+            layers[layer.name] = L.tileLayer(tileUrl, {
+                id: layer.name,
+                attribution: '<a href="https://mods.factorio.com/mods/credomane/FactorioMaps">FactorioMaps</a>',
+                minNativeZoom: layer.zoom.min,
+                maxNativeZoom: layer.zoom.max,
+                minZoom: minZoom,
+                maxZoom: layer.zoom.max,
+                noWrap: true,
+                tileSize: layer.tiles.size,
+                keepBuffer: 3
+            });
+            /* EDIT */
+            if (layer.save.download !== null && layer.save.download !== "") {
+                saves.push({
+                    layer: layer.save.name || layer.name,
+                    url: layer.save.url
+                });
+                if (layer.save.url) {
+                    countAvailableSaves++;
+                }
+            }
+
+            /* END EDIT */
+        }
+        /* EDIT */
+        if (countAvailableSaves > 0 || m.links.save) {
+            var btn = document.createElement("a"), modal = document.getElementById("modal"), ulContainer = document.getElementById("save-download-container"), modalClose = modal.getElementsByClassName("close")[0], opened = false, built = false;
+            btn.id = 'downBtn';
+            btn.appendChild(document.createTextNode("Download Save"))
+            if (saves.length <= 1) {
+                //Act like a download link
+                btn.href = saves.length === 1 ? saves[0].url : m.links.save;
+                btn.target = '_blank';
+            } else {
+                btn.addEventListener('click', function () {
+                    if (!opened) {
+                        if (!built) {
+                            //Empty the modal, re-create modal content and display it
+                            while (ulContainer.lastChild) {
+                                ulContainer.removeChild(ulContainer.lastChild);
+                            }
+                            for (var i in saves) {
+                                if (saves.hasOwnProperty(i)) {
+                                    var saveObj = saves[i];
+                                    var li = document.createElement("li"), a = document.createElement("a"), span = document.createElement("span"), hr = document.createElement("hr");
+                                    hr.classList.add("clear");
+                                    a.classList.add("mapLayerLink");
+                                    li.classList.add("mapLayer");
+                                    a.appendChild(document.createTextNode("Download"));
+
+                                    a.target = "_blank";
+                                    if (!saveObj.url) {
+                                        a.setAttribute("disabled", "disabled");
+                                        a.classList.add("disabled");
+                                    } else {
+                                        a.href = saveObj.url;
+                                    }
+                                    span.classList.add("mapLayerName")
+                                    span.appendChild(document.createTextNode(saveObj.layer));
+                                    li.appendChild(span);
+                                    li.appendChild(a);
+                                    li.appendChild(hr);
+                                    ulContainer.appendChild(li);
+                                }
+                            }
+                            modal.classList.add("open");
+                            opened = true;
+                        }
+                    }
+                });
+                modalClose.addEventListener("click", function () {
+                    if (opened) {
+                        modal.classList.remove("open");
+                        opened = false;
+                    }
+                });
+            }
+            document.getElementById("buttonAnchor").appendChild(btn);
+        }
+
+        /* END EDIT */
+        var startZoom = m.meta.map.layers[0].zoom.min;
+        var startCoords = [m.generation.leaflet.startCoords.x, m.generation.leaflet.startCoords.y];
+        var map;
+        if(m.generation.leaflet.crsSimple){
+            map = L.map('map', {
+                layers: [layers[m.meta.map.layers[0].name]],
+                fadeAnimation: true,
+                zoomAnimation: true,
+                crs: L.CRS.Simple
+            }).setView(startCoords, startZoom);
+        }else{
+            map = L.map('map', {
+                layers: [layers[m.meta.map.layers[0].name]],
+                fadeAnimation: true,
+                zoomAnimation: true
+            }).setView(startCoords, startZoom);
+        }
+        new L.Hash(map, layers);
+        if (m.meta.map.layers.length > 1) {
+            L.control.layers(layers, {}, { collapsed: m.meta.map.options.collapseLayerList }).addTo(map).setPosition('bottomright');
+        }
+        map.addControl(new L.Control.Fullscreen().setPosition('bottomright'));
+        map.zoomControl.setPosition('bottomleft')
+        if (m.meta.map.markers !== null && m.meta.map.markers !== undefined) {
+            for (i = 0; i < m.meta.map.markers.length; i++) {
+                var markerData = m.meta.map.markers[i], div = document.createElement('div'), title = document.createElement('h3');
+                div.innerHTML = '<h3>' + markerData.title + '</h3>' + markerData.text;
+                L.marker(markerData.coords, { title: markerData.title }).addTo(map).bindPopup(div);
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,85 @@
+.cedar-popup-container,
+.cedar-popup-container * {
+    box-sizing: border-box;
+}
+
+.cedar-popup-container,
+.cedar-popup-container>div>*>* {
+    opacity: 0.7;
+}
+
+.cedar-popup-container div>*>*:hover,
+.cedar-popup-container *:focus,
+.cedar-popup-container .cedar-popup-body,
+.cedar-popup-container .cedar-popup-body>* {
+    opacity: 1;
+}
+
+.cedar-popup-container *::placeholder {
+    color: lightgray;
+}
+
+.cedar-popup-container {
+    width: 300px;
+    height: 450px;
+}
+
+.leaflet-popup-content-wrapper.error {
+    background-color: rgba(234, 196, 196);
+}
+
+.cedar-popup-container .cedar-popup-title,
+.cedar-popup-container .cedar-popup-body {
+    margin-bottom: 5px;
+}
+
+.cedar-popup-container .cedar-popup-title,
+.cedar-popup-container .cedar-popup-title input {
+    width: 100%;
+    height: 25px;
+}
+
+.cedar-popup-container .cedar-popup-title input {
+    border-radius: 5px;
+    border: 1px solid lightgray;
+    padding: 12px 5px;
+}
+
+.cedar-popup-container .cedar-popup-body,
+.cedar-popup-container .cedar-popup-body textarea,
+.pell-content {
+    width: 100%;
+    height: 375px;
+}
+
+.pell-content {
+    height: 330px;
+}
+
+.cedar-popup-container .cedar-popup-body textarea,
+.cedar-popup-container .cedar-popup-body>div {
+    border: 1px solid;
+    border-color: lightgray;
+    border-radius: 5px;
+    padding: 5px;
+}
+
+.cedar-popup-container .cedar-btn-container {
+    width: 100%;
+    height: 40px;
+    text-align: center;
+}
+
+.cedar-popup-container .cedar-btn-container .cedar-btn-cancel {
+    width: 100%;
+    height: 100%;
+    border-radius: 5px;
+    border: 1px solid darkred;
+    background-color: rgba(100, 0, 0, 0.8);
+    color: white;
+    cursor: pointer;
+}
+
+.pell-actionbar .pell-button:last-of-type {
+    transform: rotateY(180deg);
+}
