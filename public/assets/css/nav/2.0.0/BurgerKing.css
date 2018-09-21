@@ -1,0 +1,1 @@
+.burger ul{width:100%;box-sizing:border-box;position:relative}.burger.closed ul{display:none}.burger.opened ul{display:block}.burger ul>li{display:block;float:none;width:100%}.menu-new{display:none;width:100%;background-color:#333;color:white;text-align:center;margin:0;padding:10px;box-sizing:border-box}.burger .menu-new{display:block}
