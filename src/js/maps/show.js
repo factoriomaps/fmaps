@@ -217,8 +217,7 @@
                     if (location.host !== "") {
                         tileUrl = "/" + m.meta.map.path + "/" + tileUrl;
                     }
-                    ++instance.countLayers;
-                    instance.layers[layer.name] = L.tileLayer(tileUrl, {
+		    var options = {
                         id: layer.name,
                         attribution: '<a href="https://mods.factorio.com/mods/credomane/FactorioMaps">FactorioMaps</a>',
                         minNativeZoom: layer.zoom.min,
@@ -228,17 +227,25 @@
                         noWrap: true,
                         tileSize: layer.tiles.size,
                         keepBuffer: 3
-                    });
+                    };
+                    if(layer.bounds&&layer.bounds.hasOwnProperty('southWest')&&layer.bounds.hasOwnProperty('northEast')){
+			options['bounds'] = [
+			    L.CRS.Simple.pointToLatLng(L.point(layer.bounds.southWest.x*layer.tiles.size,layer.bounds.southWest.y*layer.tiles.size),layer.zoom.max),
+			    L.CRS.Simple.pointToLatLng(L.point(layer.bounds.northEast.x*layer.tiles.size,layer.bounds.northEast.y*layer.tiles.size),layer.zoom.max)
+			];
+		    }
+                    ++instance.countLayers;
+                    instance.layers[layer.name] = L.tileLayer(tileUrl, options);
                     if(!instance.firstLayer) {
                         instance.firstLayer = instance.layers[layer.name];
                     }
                     if (layer.save.download !== null && layer.save.download !== "") {
                         instance.saves.push({
-                        layer: layer.save.name || layer.name,
-                        url: layer.save.url
+                            layer: layer.save.name || layer.name,
+                            url: layer.save.url
                         });
                         if (layer.save.url) {
-                        instance.availableSaves++;
+                            instance.availableSaves++;
                         }
                     }
                 }
