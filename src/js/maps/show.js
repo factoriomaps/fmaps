@@ -110,11 +110,15 @@
             },
             /* Create the map object */
             buildMap: function(instance) {
-                instance.map = L.map('map', {
+                var startCoords = instance.meta && instance.meta.generation && instance.meta.generation.leaflet && instance.meta.generation.leaflet.startCoords && [instance.meta.generation.leaflet.startCoords.x || 0, instance.meta.generation.leaflet.startCoords.y || 0] || [0,0], options = {
                     layers: instance.firstLayer,
                     fadeAnimation: true,
                     zoomAnimation: true
-                }).setView([0, 0], instance.startZoom);
+                };
+                if( instance.meta && instance.meta.generation && instance.meta.generation.leaflet && instance.meta.generation.leaflet.crsSimple ) {
+                    options['crs'] = L.CRS.Simple;
+                }
+                instance.map = L.map('map', options).setView(startCoords, instance.startZoom);
                 if(instance.countLayers===2&&false) {
                     globalStore.fn.prepareLayerSlider();
                 } else {
