@@ -1,3 +1,39 @@
+html {
+    height: 100%
+}
+
+body {
+    height: 100%;
+    margin: 0px;
+    padding: 0px
+}
+
+/* Map */
+#map {
+    height: 100%;
+    z-index: 0;
+    background: #1B2D33;
+    background-color: rgb(27, 44, 51) !important;
+}
+
+#gmnoprint {
+    width: auto;
+}
+
+/* Markers editor
+   Overwrite some pell base style */
+.cedar-export {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 50px;
+    width: 75px;
+}
+
+.cedar-export > button {
+    
+}
+
 .cedar-popup-container,
 .cedar-popup-container * {
     box-sizing: border-box;

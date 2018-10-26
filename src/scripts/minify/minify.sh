@@ -27,7 +27,7 @@ uglifyjs src/js/nav/BurgerKing.js -m > "${ASSET_PATH}/js/nav/${CURRENT_VERSION}/
 
 uglifycss src/css/browse/main.css > "${ASSET_PATH}/css/browse/${CURRENT_VERSION}/browse.css"
 uglifycss src/css/maps/edit.css > "${ASSET_PATH}/css/leaflet/edit/${CURRENT_VERSION}/map.css"
-uglifycss src/css/maps/show.css > "${ASSET_PATH}/css/leaflet/map/${CURRENT_VERSION}/map.css"
+uglifycss src/css/maps/main.css > "${ASSET_PATH}/css/leaflet/map/${CURRENT_VERSION}/map.css"
 uglifycss src/css/nav/BurgerKing.css > "${ASSET_PATH}/css/nav/${CURRENT_VERSION}/BurgerKing.css"
 
 cd "${OLD_CWD}"

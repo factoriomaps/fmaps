@@ -16,4 +16,5 @@
 
 There is a script :
 > ./src/scripts/minify/minify.sh
+
 All assets that are in src and need to be altered before deployment are transformed there

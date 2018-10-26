@@ -1,0 +1,126 @@
+html {
+    height: 100%
+}
+
+body {
+    height: 100%;
+    margin: 0px;
+    padding: 0px
+}
+
+/* Map */
+#map {
+    height: 100%;
+    z-index: 0;
+    background: #1B2D33;
+    background-color: rgb(27, 44, 51) !important;
+}
+
+#gmnoprint {
+    width: auto;
+}
+
+/* Float reset */
+hr.clear {
+    clear: both;
+    float: none;
+    border: 0;
+    width: 0;
+    height: 0;
+    padding: 0;
+    margin: 0;
+}
+
+/* Download button */
+#downBtn {
+    position: fixed;
+    /* Fixed/sticky position */
+    bottom: 0px;
+    /* Place the button at the bottom of the page */
+    right: 50%;
+    transform: translate(50%, 0);
+    z-index: 99;
+    /* Make sure it does not overlap */
+    border: none;
+    /* Remove borders */
+    outline: none;
+    /* Remove outline */
+    background-color: chocolate;
+    /* Set a background color */
+    color: white;
+    /* Text color */
+    cursor: pointer;
+    /* Add a mouse pointer on hover */
+    padding: 5px;
+    /* Some padding */
+    border-radius: 7px;
+    /* Rounded corners */
+    font-size: 18px;
+    /* Increase font size */
+}
+
+#downBtn:hover {
+    background-color: #555;
+    /* Add a dark-grey background on hover */
+}
+
+/* Download modal */
+#modal {
+    display: none;
+    position: absolute;
+    top: 150px;
+    bottom: 30px;
+    background-color: rgb(27, 45, 51);
+    padding: 20px;
+    z-index: 100;
+    width: 400px;
+    right: 50%;
+    margin-right: -200px;
+    border: none;
+    border-radius: 5px;
+    color: #C6FFFD;
+}
+
+#modal.open {
+    display: block;
+}
+
+#modal ul li {
+    list-style-type: none;
+    margin-bottom: 5px;
+}
+
+#modal .close {
+    cursor: pointer;
+    float: right;
+    margin-top: -20px;
+}
+
+#modal .title {
+    font-size: 2em;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+#modal .mapLayerLink {
+    float: right;
+    padding: 0px 25px;
+    background-color: chocolate;
+    color: #CFFFFD;
+    border-radius: 8px;
+    line-height: 35px;
+}
+
+#modal .mapLayerLink.disabled {
+    background-color: grey;
+    cursor: not-allowed;
+}
+
+#modal .mapLayerLink:hover {
+    background-color: #555;
+}
+
+#modal .body {
+    overflow-y: auto;
+    max-height: 92%;
+}
