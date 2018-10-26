@@ -30,10 +30,6 @@ body {
     width: 75px;
 }
 
-.cedar-export > button {
-    
-}
-
 .cedar-popup-container,
 .cedar-popup-container * {
     box-sizing: border-box;
