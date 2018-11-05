@@ -124,3 +124,86 @@ hr.clear {
     overflow-y: auto;
     max-height: 92%;
 }
+/* InfoBox */
+.infoBox {
+    position: fixed;
+    top: 5px;
+    left: 5px;
+    z-index: 98;
+    border: 5px solid white;
+    background-color: white;
+    color: rgb(0, 0, 20);
+    outline: none;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 5px;
+    font-size: 0.8em;
+    overflow-x: hidden;
+    opacity: .2;
+}
+.infoBox:hover, .infoBox.opened {
+    opacity:1;
+}
+.infoBox > div {
+    margin-bottom: 5px;
+}
+.infoBox > div:last-of-type {
+    margin-bottom: -5px;
+}
+.infoBox > div:last-of-type > label,
+.infoBox.opened > div:last-of-type > span,
+.infoBox > div > span > div a.mapex-display + span,
+.infoBox > div > span.mapex > div a.mapex-display {
+    display: none;
+}
+.infoBox > div:last-of-type > span,
+.infoBox.opened > div:last-of-type > label,
+.infoBox > div > span.mapex > div a.mapex-display + span {
+    display: inline-block;
+}
+.infoBox > div:last-of-type > span,
+.infoBox > div:last-of-type > label {
+    width: 100% !important;
+    font-size: .8em;
+    text-align: center;
+}
+.infoBox > div > label {
+    width: 10ch;
+    display: inline-block;
+    vertical-align: top;
+}
+.infoBox.opened > div > label {
+    width: 12ch;
+}
+.infoBox > div > span {
+    width: 9ch;
+    display: inline-block;
+    white-space: nowrap;
+}
+.infoBox > .extended {
+    display: none;
+}
+.infoBox.opened > .extended {
+    display: block;
+}
+.infoBox.opened > div > span {
+    width: initial;
+    white-space: initial;
+}
+.infoBox > div > span > ul {
+    margin: 0;
+    padding-left: 13px;
+}
+.infoBox > div > span textarea {
+    width: 35ch;
+    height: 4em;
+}
+.infoBox > div > span > div a.mapex-display {
+    border: 1px solid black;
+    padding: 2px;
+    border-radius: 5px;
+    background-color: lightgray;
+}
+.infoBox > div > span > div a.mapex-display:hover {
+    background-color: #c0c0c0;
+}
