@@ -1,22 +1,178 @@
 "use strict";
-(function (window, document, Isotope, noUiSlider, history) {
-    if (window.Browse) { return; }
+(function(window, document, Isotope, noUiSlider, history, jQuery){
+    if (window.Browse) { return ; }
 
     var globalStore = {
-        monthMap: ["Jan.", "Feb.", "Mar.", "Apr.", "May", "Jun.", "Jul.", "Aug.", "Sep.", "Nov.", "Dec."],
+        monthMap: ["Jan.", "Feb.", "Mar.","Apr.", "May", "Jun.", "Jul.", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."],
+        counter: 0,
+        regExs: {
+            sliderTime: /(\d+)h\s+(\d+)m\s+(\d+)s/,
+            number: /^\d+$/
+        },
+        props: {
+            author: {
+                prop:   "author",
+                url:    "user",
+                type:   "string",
+                search: "equal",
+                model:  "username",
+                filter: "select",
+                mapProp: function(data, instance) {
+                    if (!data.meta.source.user||!data.meta.source.user.username) {
+                        return "anonymous";
+                    }
+                    if (instance.authorList.filter(function(value) { return value === data.meta.source.user.username; }).length===0) {
+                        instance.authorList.push(data.meta.source.user.username);
+                    }
+                    return data.meta.source.user.username;
+                }
+            },
+            mods: {
+                prop:   "mods",
+                url:    "mods",
+                type:   "string",
+                search: "equal",
+                model:  "mods",
+                filter: "select",
+                mapProp: function(data, instance) {
+                    if (!data.meta.map.details.mods) {
+                        return [];
+                    }
+                    var mods = [];
+                    for (var e in data.meta.map.details.mods) {
+                        if (data.meta.map.details.mods.hasOwnProperty(e)){
+                            if (instance.modList.filter(function(value) { return value === data.meta.map.details.mods[e].name; }).length===0) {
+                                instance.modList.push(data.meta.map.details.mods[e].name);
+                            }
+                            mods.push(data.meta.map.details.mods[e].name);
+                        }
+                    }
+                    return mods;
+                }
+            },
+            tags: {
+                prop:   "tags",
+                url:    "search",
+                type:   "string",
+                search: "search",
+                model:  "tags",
+                filter: "input",
+                mapProp: function(data) {
+                    var tags = data.meta.tags || [];
+                    if (data.meta.map.title) {
+                        tags.push(data.meta.map.title);
+                    }
+                    if (data.meta.source.user&&data.meta.source.user.username) {
+                        tags.push(data.meta.source.user.username);
+                    }
+                    if (data.meta.map.contributors) {
+                        for (var e in data.meta.map.contributors) {
+                            if (data.meta.map.contributors.hasOwnProperty(e)&&data.meta.map.contributors[e].hasOwnProperty("username")) {
+                                tags.push(data.meta.map.contributors[e].username);
+                            }
+                        }
+                    }
+                    if (data.meta.map.details.mods) {
+                        for (var e in data.meta.map.details.mods) {
+                            if (data.meta.map.details.mods.hasOwnProperty(e)){
+                                tags.push(data.meta.map.details.mods[e].name);
+                            }
+                        }
+                    }
+                    return tags;
+                }
+            },
+            hasSave: {
+                prop:   "hasSave",
+                url:    "save",
+                type:   "boolean",
+                search: "equal",
+                model:  "hasSave",
+                filter: "boolean",
+                mapProp: function(data) {
+                    return (!!data.links.save)||(data.meta.map.hasOwnProperty("layers")&&Array.isArray(data.meta.map.layers)&&data.meta.map.layers.filter(function(layer){
+                        return !!layer.save.download;
+                    }).length>0);
+                }
+            },
+            isPublicServer: {
+                prop:   "isPublicServer",
+                url:    "public",
+                type:   "boolean",
+                search: "equal",
+                model:  "isPublicServer",
+                filter: "boolean",
+                mapProp: ".meta.map.options.publicServer"
+            },
+            isLayered: {
+                prop:   "isLayered",
+                url:    "layer",
+                type:   "boolean",
+                search: "equal",
+                model:  "isLayered",
+                filter: "boolean",
+                mapProp: function(data){
+                    return data.meta.map.options.hasOwnProperty("layers")&&data.meta.map.options.layers > 1;
+                }
+            },
+            isModded: {
+                prop:   "isModded",
+                url:    "modded",
+                type:   "boolean",
+                search: "equal",
+                model:  "isModded",
+                filter: "boolean",
+                mapProp: ".meta.map.options.modded"
+            },
+            playTime: {
+                model: "playTime",
+                filter: "slider",
+                mapProp: function(data, instance){
+                    if (data.meta.map.details.playTime.ticks>instance.playTime.max){
+                        instance.playTime.max = data.meta.map.details.playTime.ticks;
+                    }
+                    if (null===instance.playTime.min||data.meta.map.details.playTime.ticks<instance.playTime.min) {
+                        instance.playTime.min = data.meta.map.details.playTime.ticks;
+                    }
+                    return data.meta.map.details.playTime.ticks;
+                }
+            },
+            playTimemin: {
+                prop:   "playTimemin",
+                url:    "playStart",
+                type:   "integer",
+                search: ">=",
+                model:  "playTime"
+            },
+            playTimemax: {
+                prop:   "playTimemax",
+                url:    "playEnd",
+                type:   "integer",
+                search: "<=",
+                model:  "playTime"
+            }
+        },
         counter: 0,
         fn: {
-            applyFilter: function (instance) {
+            applyFilter: function(instance) {
                 globalStore.fn.setHistory(instance);
+                instance.playTime.currentMin = null;
+                instance.playTime.currentMax = 0;
+                var order={};
+                order[instance.order]=false;
                 instance.isotope.arrange({
                     filter: globalStore.fn.buildFilterFunction(instance),
-                    sortBy: 'initial',
-                    sortAscending: {
-                        'initial': false
+                    sortBy: instance.order,
+                    sortAscending: order
+                });
+                instance.playTime.element.noUiSlider.updateOptions({
+                    range: {
+                        min: Math.max(0, instance.playTime.currentMin - 60),
+                        max: instance.playTime.currentMax + 60
                     }
                 });
             },
-            buildBrowse: function (instance, data, urlSearch) {
+            buildBrowse: function(instance, data, urlSearch){
                 globalStore.fn.purgeElement(instance.container);
                 instance.buttons = document.createElement("div");
                 instance.buttons.classList.add("isotope-filter-container");
@@ -32,12 +188,13 @@
                 globalStore.fn.parseUrl(instance, urlSearch);
                 globalStore.fn.initHistory(instance);
                 globalStore.fn.initIsotope(instance);
+                globalStore.fn.initLazyLoad(instance);
                 globalStore.fn.buildFilter(instance);
                 globalStore.fn.applyFilter(instance);
-
+                
             },
-            buildBrowseBox: function (instance, data) {
-                var box = document.createElement("div"), header = document.createElement("div"), footer = document.createElement("div"), imgLink = document.createElement("a"), img = document.createElement("img"), headUser = document.createElement("span"), headDate = document.createElement("span"), dateSup = document.createElement("sup"), footTitle = document.createElement("span"), sep = document.createElement("hr"), date = new Date(data.date), sup = "", isotopeData = data.options;
+            buildBrowseBox: function(instance, data){
+                var box = document.createElement("div"), header = document.createElement("div"), footer = document.createElement("div"), imgLink = document.createElement("a"), img = document.createElement("img"), headUser = document.createElement("span"), headDate = document.createElement("span"), dateSup = document.createElement("sup"), footTitle = document.createElement("span"), sep = document.createElement("hr"), date = new Date((!data.meta.source.hasOwnProperty("submission")||!data.meta.source.submission.hasOwnProperty("date")) ? "" : data.meta.source.submission.date), sup = "", isotopeData = [];
                 box.classList.add("Container-item");
                 header.classList.add("header");
                 footer.classList.add("footer");
@@ -46,120 +203,110 @@
                 footTitle.classList.add("title");
                 sep.classList.add("clear");
 
-                globalStore.fn.injectInto(headUser, [data.username || "Anonymous"]);
+                globalStore.fn.injectInto(headUser, [data.meta.source.user.username||"Anonymous"]);
 
-                if (data.options.isPublicServer) {
+                if (data.meta.map.options.isPublicServer){
                     box.classList.add("public-server");
                 }
-                if (data.options.isAnonymous) {
+                if (data.meta.map.options.isAnonymous){
                     box.classList.add("anonymous");
-                    isotopeData.username = "anonymous";
-                } else {
-                    isotopeData.username = data.username;
-                    if (instance.authorList.filter(function (value) { return value === isotopeData.username; }).length === 0) {
-                        instance.authorList.push(isotopeData.username);
-                    }
-                }
-                if (data.playTime) {
-                    isotopeData.playTime = data.playTime.hours * 60 * 60 + data.playTime.minutes * 60 + data.playTime.seconds;
-                    if (isotopeData.playTime > instance.maxPlayTime) {
-                        instance.maxPlayTime = isotopeData.playTime;
-                    }
-                } else {
-                    isotopeData.playTime = 0;
                 }
                 isotopeData.date = date;
                 sup = globalStore.fn.getDateSuffix(date);
                 globalStore.fn.injectInto(dateSup, [sup]);
                 globalStore.fn.injectInto(headDate, [globalStore.monthMap[date.getMonth()], " ", date.getDate(), dateSup, " ", date.getFullYear()]);
-                globalStore.fn.injectInto(footTitle, [isotopeData.title = (data.worldName || "No world title")]);
-                img.src = instance.mapPreviewPrefix + data.mapPreviewUrl;
-                imgLink.href = data.url;
-
+                globalStore.fn.injectInto(footTitle, [data.meta.map.title||"No world title"]);
+                img.setAttribute('data-original', instance.mapPreviewPrefix + data.links.preview);
+                img.src = 'data:image/gif;base64,R0lGODdhAQABAPAAAMPDwwAAACwAAAAAAQABAAACAkQBADs=';
+                img.classList.add('lazyload');
+                imgLink.href = data.links.url;
+                
                 globalStore.fn.injectInto(header, [headUser, headDate, sep]);
                 globalStore.fn.injectInto(footer, [footTitle]);
                 globalStore.fn.injectInto(imgLink, [img]);
                 globalStore.fn.injectInto(box, [header, footer, imgLink]);
 
-                isotopeData.topMap = (data.search.tags || []).filter(function (value) {
+                isotopeData.topMap = (data.meta.tags||[]).filter(function(value){
                     return value === "featured";
-                }).length > 0;
+                }).length>0;
                 if (isotopeData.topMap) {
                     box.classList.add("featured");
                 }
-                isotopeData.tags = data.search.tags || [];
-                isotopeData.tags.push(isotopeData.title);
-                isotopeData.tags.push(isotopeData.username);
+                for (var e in globalStore.props) {
+                    if (globalStore.props.hasOwnProperty(e)) {
+                        var propDef = globalStore.props[e];
+                        if (propDef.hasOwnProperty('mapProp')) {
+                            var value = null;
+                            if (typeof propDef.mapProp === "function") {
+                                //func
+                                value = propDef.mapProp(data, instance);
+                            } else {
+                                //prop path
+                                var path = propDef.mapProp.replace('.', '').split('.'), next = data;
+                                for(var e in path) {
+                                    if(path.hasOwnProperty(e)&&next.hasOwnProperty(path[e])) {
+                                        next = next[path[e]];
+                                    }
+                                }
+                                value = next;
+                            }
+                            isotopeData[propDef.model] = value;
+                        }
+                    }
+                }
+                
                 instance.isotopeData[++globalStore.counter] = isotopeData;
                 box.setAttribute("data-id", globalStore.counter);
-                box.setAttribute("data-date", data.date);
-                box.setAttribute("data-order", (isotopeData.topMap ? "1_" : "0_") + data.date)
+                box.setAttribute("data-date", data.meta.map.saveDate);
+                box.setAttribute("data-order", (isotopeData.topMap ? "1_" : "0_")+data.meta.map.saveDate);
+                box.setAttribute("data-subdate", data.meta.source.submission.date);
+                box.setAttribute("data-suborder", (isotopeData.topMap ? "1_" : "0_")+data.meta.source.submission.date);
                 return box;
             },
-            buildFilter: function (instance) {
-                var selectBox = document.createElement("select"), selectBoxLabel = document.createElement("label"), selectBoxContainer = document.createElement("div"), nullOption = document.createElement("option"), publicCheckbox = document.createElement("input"), labelPublicCheckbox = document.createElement("label"), publicCheckboxContainer = document.createElement("div"), playTime = document.createElement("div"), playTimeLabel = document.createElement("label"), playTimeContainer = document.createElement("div"), searchInput = document.createElement("input"), searchLabel = document.createElement("label"), searchContainer = document.createElement("div"), hr = document.createElement("hr");
-                instance.authorList.sort(function (item1, item2) {
-                    return item1.toLocaleLowerCase() > item2.toLocaleLowerCase() ? 1 : -1;
-                });
-                nullOption.value = "";
-                globalStore.fn.injectInto(nullOption, [" - Select an author to filter - "]);
-                globalStore.fn.injectInto(selectBox, [nullOption]);
-
-                for (var e in instance.authorList) {
-                    if (instance.authorList.hasOwnProperty(e)) {
-                        var option = document.createElement("option");
-                        globalStore.fn.injectInto(option, [instance.authorList[e]]);
-                        if (instance.filters.author && instance.filters.author.value === instance.authorList[e]) {
-                            option.selected = true;
-                        }
-                        globalStore.fn.injectInto(selectBox, [option]);
-                    }
-                }
-                selectBox.addEventListener("change", function (ev) {
-                    instance.filters.author = null;
-                    var author = this.options[this.options.selectedIndex] ? this.options[this.options.selectedIndex].value : null;
-                    if (author) {
-                        instance.filters.author = { type: "equal", value: author, prop: "username" };
-                    }
-                    globalStore.fn.applyFilter(instance);
-                });
-                selectBox.id = selectBoxLabel.htmlFor = "iso-filter-author";
-                globalStore.fn.injectInto(selectBoxLabel, ["Author : "]);
+            buildFilter: function(instance) {
+                var selectBoxModContainer = document.createElement("div"), selectBoxContainer = document.createElement("div"), hasSaveCheckboxContainer = document.createElement("div"), moddedCheckboxContainer = document.createElement("div"), publicCheckboxContainer = document.createElement("div"), layeredCheckboxContainer = document.createElement("div"), playTime = document.createElement("div"), playTimeLabel = document.createElement("label"), playTimeContainer = document.createElement("div"), searchInput = document.createElement("input"), searchLabel = document.createElement("label"), searchContainer = document.createElement("div"), hr = document.createElement("hr"), callbacks = [], sortBoxContainer = document.createElement("div");
                 selectBoxContainer.classList.add("iso-filter-select-container");
-                globalStore.fn.injectInto(selectBoxContainer, [selectBoxLabel, selectBox]);
-
-                publicCheckbox.type = "checkbox";
-                publicCheckbox.id = labelPublicCheckbox.htmlFor = "iso-filter-cb-public";
-                globalStore.fn.injectInto(labelPublicCheckbox, ["Public servers : "]);
-                if (instance.filters.isPublicServer) {
-                    publicCheckbox.indeterminate = false;
-                    publicCheckbox.checked = instance.filters.isPublicServer.value;
-                    publicCheckbox.setAttribute("state", publicCheckbox.checked ? "checked" : "unchecked");
-                } else {
-                    publicCheckbox.indeterminate = true;
-                    publicCheckbox.checked = false;
-                    publicCheckbox.setAttribute("state", "none");
-                }
-                publicCheckbox.addEventListener("click", globalStore.fn.triStateCheckboxClick.bind(publicCheckbox, instance, "isPublicServer"));
+                callbacks.push(globalStore.fn.filterSelect(instance, selectBoxContainer, "Author :", "author", "authorList", {}));
+                selectBoxModContainer.classList.add("iso-filter-select-container");
+                callbacks.push(globalStore.fn.filterSelect(instance, selectBoxModContainer, "Mods :", "mods", "modList", {
+                    maxItems: 5
+                }));
+                
                 publicCheckboxContainer.classList.add("iso-filter-public-container");
-                globalStore.fn.injectInto(publicCheckboxContainer, [labelPublicCheckbox, publicCheckbox]);
+                publicCheckboxContainer.classList.add("iso-filter-checkbox-container");
+                callbacks.push(globalStore.fn.triStateCheckbox(instance, publicCheckboxContainer, "Public servers :", "isPublicServer"));
+                moddedCheckboxContainer.classList.add("iso-filter-modded-container");
+                moddedCheckboxContainer.classList.add("iso-filter-checkbox-container");
+                callbacks.push(globalStore.fn.triStateCheckbox(instance, moddedCheckboxContainer, "Modded :", "isModded"));
+                hasSaveCheckboxContainer.classList.add("iso-filter-save-container");
+                hasSaveCheckboxContainer.classList.add("iso-filter-checkbox-container");
+                callbacks.push(globalStore.fn.triStateCheckbox(instance, hasSaveCheckboxContainer, "Map download :", "hasSave"));
+                layeredCheckboxContainer.classList.add("iso-filter-layer-container");
+                layeredCheckboxContainer.classList.add("iso-filter-checkbox-container");
+                callbacks.push(globalStore.fn.triStateCheckbox(instance, layeredCheckboxContainer, "Multiple Layers :", "isLayered"));
 
                 playTime.id = playTimeLabel.htmlFor = "iso-filter-playtime";
+                instance.playTime.element = playTime;
                 noUiSlider.create(playTime, {
-                    start: [instance.filters.playTimemin ? instance.filters.playTimemin.value : 0, instance.filters.playTimemax ? instance.filters.playTimemax.value : instance.maxPlayTime + 1],
+                    start: [instance.filters.playTimemin ? instance.filters.playTimemin : Math.max(0, instance.playTime.min-60), instance.filters.playTimemax ? instance.filters.playTimemax : instance.playTime.max+60],
                     tooltips: [true, true],
                     step: 1,
                     margin: 1,
                     range: {
-                        "min": 0,
-                        "max": instance.maxPlayTime + 1
+                        "min": Math.max(0, instance.playTime.min-60),
+                        "max": instance.playTime.max+60
                     },
                     format: {
-                        to: function (value) {
-                            var hours = Math.floor(value / (60 * 60)), minutes = Math.floor((value - hours * 60 * 60) / 60), seconds = Math.floor(value - (hours * 60 * 60 + minutes * 60));
+                        to: function(value) {
+                            var hours = Math.floor(value / (60*60*60)), minutes = Math.floor((value-hours*60*60*60)/(60*60)), seconds = Math.floor((value-(hours*60*60*60+minutes*60*60))/60);
                             return '' + hours + 'h ' + minutes + 'm ' + seconds + 's';
                         },
-                        from: function (value) {
+                        from: function(value){
+                            if (Number.isInteger(value)||globalStore.regExs.number.test(value)){
+                                return value;
+                            }
+                            var timeObj=globalStore.regExs.sliderTime.exec(value);
+                            value = 60*(parseInt(timeObj[1])*60*60+parseInt(timeObj[2])*60+parseInt(timeObj[3]));
                             return value;
                         }
                     }
@@ -169,125 +316,255 @@
                 playTimeContainer.classList.add("iso-filter-playtime-container");
                 globalStore.fn.injectInto(playTimeContainer, [playTimeLabel, playTime]);
 
-                if (instance.filters.tags) {
-                    searchInput.value = instance.filters.tags.value;
+                if(instance.filters.tags) {
+                    searchInput.value = instance.filters.tags;
                 }
                 searchLabel.htmlFor = searchInput.id = "iso-filter-searchbox";
                 searchInput.addEventListener("keyup", globalStore.fn.inputSearchChange.bind(searchInput, instance, "tags"));
                 globalStore.fn.injectInto(searchLabel, ["Search : "]);
                 searchContainer.classList.add("iso-filter-search-container");
                 globalStore.fn.injectInto(searchContainer, [searchLabel, searchInput]);
-
+                
                 hr.classList.add("clear");
                 hr.classList.add("invisible");
-                globalStore.fn.injectInto(instance.buttons, [selectBoxContainer, publicCheckboxContainer, searchContainer, playTimeContainer, hr]);
+                sortBoxContainer.classList.add("iso-filter-select-container");
+                globalStore.fn.buildSortSelect(instance, sortBoxContainer, "Order By : ", { suborder: "Magic", subdate: "Submission date", date: "Save date" });
+                globalStore.fn.injectInto(instance.buttons, [selectBoxContainer, selectBoxModContainer, moddedCheckboxContainer, publicCheckboxContainer, hasSaveCheckboxContainer, layeredCheckboxContainer, searchContainer, playTimeContainer, sortBoxContainer, hr]);
+                for (var e in callbacks) {
+                    if (callbacks.hasOwnProperty(e)&&callbacks[e]&&typeof callbacks[e] === "function") {
+                        callbacks[e]();
+                    }
+                }
             },
-            buildFilterFunction: function (instance) {
-                return function (item) {
+            buildFilterFunction: function(instance) {
+                return function(item){
                     var itemData = instance.isotopeData[parseInt(item.getAttribute("data-id"))];
                     for (var e in instance.filters) {
-                        if (instance.filters.hasOwnProperty(e)) {
-                            var filter = instance.filters[e];
-                            if (filter.type && filter.value !== undefined) {
-                                var propValue = itemData[filter.prop];
-                                if (!(propValue !== undefined)) {
-                                    return false;
+                        if (instance.filters.hasOwnProperty(e) && globalStore.props.hasOwnProperty(e)) {
+                            var value = instance.filters[e], propDef = globalStore.props[e];
+                            if (propDef.type&&value !== undefined){
+                                var propValue = itemData[propDef.model];
+                                if (!(propValue!==undefined)) {
+                                    return false ;
                                 }
-                                if (!Array.isArray(propValue)) {
-                                    propValue = [propValue];
+                                if (!Array.isArray(propValue)){
+                                    propValue=[propValue];
                                 }
-                                if (propValue.filter(function (propValue) {
-                                    switch (filter.type) {
-                                        case "equal":
-                                            if (propValue !== filter.value) {
+                                if (propValue.filter(function(propValue){
+                                    switch(propDef.search) {
+                                    case "equal":
+                                        if (Array.isArray(value)) {
+                                            if (value.filter(function(value){
+                                                return value===propValue;
+                                            }).length !== 1) {
                                                 return false;
                                             }
-                                            break;
-                                        case "search":
-                                            if (propValue.toLocaleLowerCase().indexOf(filter.value.toLocaleLowerCase()) === -1) {
+                                        } else {
+                                            if (propValue !== value) {
                                                 return false;
                                             }
-                                            break;
-                                        case ">":
-                                            if (propValue <= filter.value) {
-                                                return false;
-                                            }
-                                            break;
-                                        case ">=":
-                                            if (propValue < filter.value) {
-                                                return false;
-                                            }
-                                            break;
-                                        case "<":
-                                            if (propValue >= filter.value) {
-                                                return false;
-                                            }
-                                            break;
-                                        case "<=":
-                                            if (propValue > filter.value) {
-                                                return false;
-                                            }
-                                            break;
+                                        }
+                                           break;
+                                           case "search":
+                                           if (propValue.toLocaleLowerCase().indexOf(value.toLocaleLowerCase())===-1) {
+                                               return false;
+                                           }
+                                           break;
+                                           case ">":
+                                           if (propValue<=value) {
+                                               return false;
+                                           }
+                                           break;
+                                           case ">=":
+                                           if (propValue<value) {
+                                               return false;
+                                           }
+                                           break;
+                                           case "<":
+                                           if (propValue>=value) {
+                                               return false;
+                                           }
+                                           break;
+                                           case "<=":
+                                           if (propValue>value) {
+                                               return false;
+                                           }
+                                           break;
+                                          }
+                                        return true;
+                                    }).length<(Array.isArray(value)?value.length:1)) {
+                                    if (propDef.model === "playTime") {
+                                        if (itemData.playTime>instance.playTime.currentMax) {
+                                            instance.playTime.currentMax = itemData.playTime;
+                                        }
+                                        if (null===instance.playTime.currentMin||itemData.playTime<instance.playTime.currentMin) {
+                                            instance.playTime.currentMin=itemData.playTime;
+                                        }
                                     }
-                                    return true;
-                                }).length < 1) {
                                     return false;
                                 }
                             }
                         }
                     }
+                    if (itemData.playTime>instance.playTime.currentMax) {
+                        instance.playTime.currentMax = itemData.playTime;
+                    }
+                    if (null===instance.playTime.currentMin||itemData.playTime<instance.playTime.currentMin) {
+                        instance.playTime.currentMin=itemData.playTime;
+                    }
                     return true;
                 }
             },
-            generateUrl: function (instance) {
+            buildSortSelect: function(instance, container, label, options) {
+                var sortBox = document.createElement("select"), labelObj = document.createElement("label");
+                globalStore.fn.injectInto(labelObj, [label]);
+                for (var e in options) {
+                    if (options.hasOwnProperty(e)) {
+                        var option = document.createElement("option");
+                        option.value=e;
+                        globalStore.fn.injectInto(option, [options[e]])
+                        globalStore.fn.injectInto(sortBox, [option]);
+                    }
+                }
+                labelObj.htmlFor = sortBox.id = "sort-select";
+                globalStore.fn.injectInto(container, [labelObj, sortBox]);
+                sortBox.addEventListener("change", function(ev){
+                    instance.order = ev.target[ev.target.selectedIndex].value;
+                    globalStore.fn.applyFilter(instance);
+                });
+            },
+            filterObject: function(data, predicate){
+                var data = Object(data), result=[];
+
+                Object.keys(data).forEach(function(key) {
+                    var value = data[key];
+                    if (predicate(value, key, data)) {
+                        result.push(value);
+                    }
+                });
+                
+                return result;
+            },
+            filterSelect: function(instance, container, label, prop, sourceProp, options){
+                var selectBox = document.createElement("select"), selectBoxLabel = document.createElement("label"), nullOption = document.createElement("option");
+                if (options&&options.hasOwnProperty("maxItems")&&options.maxItems>1) {
+                    selectBox.multiple="multiple";
+                } else {
+                    options.maxItems = 1;
+                }
+                instance[sourceProp].sort(function(item1, item2){
+                    return item1.toLocaleLowerCase()>item2.toLocaleLowerCase() ? 1 : -1;
+                });
+                nullOption.value = "";
+                globalStore.fn.injectInto(nullOption, [" - Select one to filter - "]);
+                globalStore.fn.injectInto(selectBox, [nullOption]);
+                
+                for (var e in instance[sourceProp]) {
+                    if (instance[sourceProp].hasOwnProperty(e)) {
+                        var option = document.createElement("option");
+                        globalStore.fn.injectInto(option, [instance[sourceProp][e]]);
+                        if (instance.filters.hasOwnProperty(prop)&&((Array.isArray(instance.filters[prop])&&instance.filters[prop].filter(function(matchValue){ return matchValue===instance[sourceProp][e];}).length===1)||(instance.filters[prop]===instance[sourceProp][e]))) {
+                            option.selected = true;
+                        }
+                        globalStore.fn.injectInto(selectBox, [option]);
+                    }
+                }
+                selectBox.addEventListener("change", function(ev) {
+                    instance.filters[prop] = null;
+                    var element = this.options[this.options.selectedIndex] ? this.options[this.options.selectedIndex].value : null;
+                    if (element) {
+                        instance.filters[prop] = element;
+                    } else {
+                        delete instance.filters[prop];
+                    }
+                    globalStore.fn.applyFilter(instance);
+                });
+                selectBox.id = selectBoxLabel.htmlFor = "iso-filter-" + prop;
+                globalStore.fn.injectInto(selectBoxLabel, [label]);
+                globalStore.fn.injectInto(container, [selectBoxLabel, selectBox]);
+                return function(){
+                    $(selectBox).selectize(options).on("change", function(ev) {
+                        var values = $.makeArray($(this).children().map(function(i, el){
+                            return el.value;
+                        }));
+                        instance.filters[prop] = null;
+                        if (values.length>0) {
+                            instance.filters[prop] = values.length===1 ? values[0] : values;
+                        } else {
+                            delete instance.filters[prop];
+                        }
+                        globalStore.fn.applyFilter(instance);
+                    });
+                };
+            },
+            generateUrl: function(instance) {
                 var url = "";
-                if (instance.filters.author) {
-                    url += "&user=" + window.encodeURIComponent(instance.filters.author.value);
-                }
-                if (instance.filters.tags) {
-                    url += "&search=" + window.encodeURIComponent(instance.filters.tags.value);
-                }
-                if (instance.filters.isPublicServer) {
-                    url += "&public=" + window.encodeURIComponent(instance.filters.isPublicServer.value ? "true" : "false");
-                }
-                if (instance.filters.playTimemin) {
-                    url += "&playStart=" + window.encodeURIComponent(instance.filters.playTimemin.value);
-                }
-                if (instance.filters.playTimemax) {
-                    url += "&playEnd=" + window.encodeURIComponent(instance.filters.playTimemax.value);
+                for (var e in globalStore.props) {
+                    if (globalStore.props.hasOwnProperty(e)) {
+                        var propDef = globalStore.props[e], value = null;
+                        if (instance.filters.hasOwnProperty(propDef.prop) && instance.filters[propDef.prop] !== undefined) {
+                            switch (propDef.type) {
+                            case "boolean":
+                                value = instance.filters[propDef.prop] ? "true" : "false";
+                                break;
+                            case "string":
+                            case "integer":
+                            default:
+                                value = JSON.stringify(instance.filters[propDef.prop]);
+                            }
+                            url += "&" + propDef.url + "=" + window.encodeURIComponent(value);
+                        }
+                    }
                 }
                 return window.location.pathname + url.replace("&", "?");
             },
-            getDateSuffix: function (date) {
+            getDateSuffix: function(date) {
                 var ret = "";
-                switch (date.getDate()) {
-                    case 1: case 11: case 21: case 31:
-                        ret = "st";
-                        break;
-                    case 2: case 22:
-                        ret = "nd";
-                        break;
-                    case 3: case 32:
-                        ret = "rd";
-                        break;
-                    default:
-                        ret = "th";
+                switch (date.getDate()){
+                case 1: case 11: case 21: case 31:
+                    ret = "st";
+                    break;
+                case 2: case 22:
+                    ret = "nd";
+                    break;
+                case 3: case 32:
+                    ret = "rd";
+                    break;
+                default:
+                    ret = "th";
                 }
                 return ret;
             },
-            initHistory: function (instance) {
-
+            initHistory: function(instance) {
+                
             },
-            initIsotope: function (instance) {
+            initIsotope: function(instance) {
                 instance.isotope = new Isotope(instance.itemContainer, {
                     getSortData: {
-                        initial: '[data-order]',
+                        suborder: '[data-suborder]',
+                        order: '[data-order]',
+                        subdate: '[data-subdate]',
                         date: '[data-date]'
                     }
                 });
             },
-            injectInto: function (parent, child) {
-                for (var e in child) {
+            initLazyLoad: function(instance) {
+                if (jQuery.fn.lazyload) {
+                    instance.lazyImgs = $('img.lazyload');
+                    instance.lazyLoad = instance.lazyImgs.lazyload({
+                        failure_limit: Math.max(instance.lazyImgs.length-1,0),
+                        event: 'lazylazy'
+                    });
+                    instance.isotope.on('layoutComplete', function(){
+                        globalStore.fn.lazyLoadImgs(instance, 'lazylazy');
+                    });
+                    $(window).on('scroll', function(){
+                        globalStore.fn.lazyLoadImgs(instance, 'lazylazy');
+                    });
+                }
+            },
+            injectInto: function(parent, child) {
+                for (var e in child){
                     if (child.hasOwnProperty(e)) {
                         if (child[e] instanceof Element) {
                             parent.appendChild(child[e]);
@@ -295,80 +572,110 @@
                             parent.appendChild(document.createTextNode(child[e]));
                         }
                     }
-                }
+                }        
             },
-            inputSearchChange: function (instance, prop) {
+            inputSearchChange: function(instance, prop) {
                 if (this.value) {
-                    instance.filters[prop] = { type: "search", value: this.value, prop: prop };
+                    instance.filters[prop] = this.value;
                 } else {
                     delete instance.filters[prop];
                 }
                 globalStore.fn.applyFilter(instance);
             },
-            noUiSliderChange: function (instance, prop, encodedValues, handle, values) {
-                instance.filters[prop + "min"] = { type: ">=", value: parseInt(values[0]), prop: prop };
-                instance.filters[prop + "max"] = { type: "<=", value: parseInt(values[1]), prop: prop };
+            lazyLoadImgs: function(instance, evt){
+                instance.lazyImgs.filter(function(){
+                    var rect = this.getBoundingClientRect();
+                    return rect.top >= 0 && rect.top <= window.innerHeight;
+                }).trigger(evt);
+            },
+            noUiSliderChange: function(instance, prop, encodedValues, handle, values){
+                instance.filters[prop+"min"] = parseFloat(values[0]);
+                instance.filters[prop+"max"] = parseFloat(values[1]);
                 globalStore.fn.applyFilter(instance);
             },
-            parseUrl: function (instance, url) {
+            parseUrl: function(instance, url) {
                 var fragments = url.replace("?", "").split("&");
-                if (fragments.length > 0) {
+                if (fragments.length>0){
                     instance.filters = {};
                     for (var e in fragments) {
                         if (fragments.hasOwnProperty(e)) {
                             var fragmentValue = fragments[e].split("=");
-                            if (!(fragmentValue[1] === undefined)) {
-                                var value = window.decodeURIComponent(fragmentValue[1])
-                                switch (fragmentValue[0]) {
-                                    case "user":
-                                        instance.filters.author = { type: "equal", value: value, prop: "username" };
+                            if (!(fragmentValue[1] === undefined)){
+                                var value = window.decodeURIComponent(fragmentValue[1]), filter = globalStore.fn.filterObject(globalStore.props, function(item) { return (item.url === fragmentValue[0]); });
+                                if (filter.length===1&&(filter=filter[0])) {
+                                    switch (filter.type) {
+                                    case "boolean":
+                                        value = (value === "true");
                                         break;
-                                    case "search":
-                                        instance.filters.tags = { type: "search", value: value, prop: "tags" };
+                                    case "integer":
+                                        value = parseFloat(value);
                                         break;
-                                    case "public":
-                                        instance.filters.isPublicServer = { type: "equal", value: value === "true", prop: "isPublicServer" };
-                                        break;
-                                    case "playStart":
-                                        instance.filters.playTimemin = { type: ">=", value: value, prop: "playTime" };
-                                        break;
-                                    case "playEnd":
-                                        instance.filters.playTimemax = { type: "<=", value: value, prop: "playTime" };
-                                        break;
+                                    }
+                                    try {
+                                        instance.filters[filter.prop] = JSON.parse(value);
+                                    } catch (e) {
+                                        window.console.error("Failure parsing JSON");
+                                    }
                                 }
                             }
                         }
                     }
                 }
             },
-            purgeElement: function (element) {
-                while (element.lastChild) {
+            purgeElement: function(element) {
+                while (element.lastChild){
                     element.removeChild(element.lastChild);
                 }
             },
-            setHistory: function (instance) {
+            setHistory: function(instance){
                 if (history) {
                     history.replaceState(instance.filters, "", globalStore.fn.generateUrl(instance));
                 }
             },
-            triStateCheckboxClick: function (instance, prop, ev) {
+            triStateCheckbox: function(instance, container, display, prop) {
+                var checkbox = document.createElement("input"), label = document.createElement("label"), id = "iso-filter-cb-" + prop;
+                checkbox.type = "checkbox";
+                checkbox.id = label.htmlFor = id;
+                globalStore.fn.injectInto(label, [ display ]);
+                switch (true) {
+                case instance.filters[prop] === true:
+                    checkbox.indeterminate = false;
+                    checkbox.checked = true;
+                    checkbox.setAttribute("state", "checked");
+                    break;
+                case instance.filters[prop] === false:
+                    checkbox.indeterminate = false;
+                    checkbox.checked = false;
+                    checkbox.setAttribute("state", "unchecked");
+                    break;
+                default:
+                    checkbox.indeterminate = true;
+                    checkbox.checked = false;
+                    checkbox.setAttribute("state", "none");
+                    break;
+                }
+                checkbox.addEventListener("click", globalStore.fn.triStateCheckboxClick.bind(checkbox, instance, prop));
+                globalStore.fn.injectInto(container, [label, checkbox]);
+                return null;
+            },
+            triStateCheckboxClick: function(instance, prop, ev){
                 switch (this.getAttribute("state")) {
-                    case "none":
-                        this.checked = true;
-                        this.indeterminate = false;
-                        this.setAttribute("state", "checked");
-                        instance.filters[prop] = { type: "equal", value: true, prop: prop };
-                        break;
-                    case "checked":
-                        this.checked = false;
-                        this.setAttribute("state", "unchecked");
-                        instance.filters[prop] = { type: "equal", value: false, prop: prop };
-                        break;
-                    case "unchecked":
-                        this.indeterminate = true;
-                        delete instance.filters[prop];
-                        this.setAttribute("state", "none");
-                        break;
+                case "none":
+                    this.checked = true;
+                    this.indeterminate = false;
+                    this.setAttribute("state", "checked");
+                    instance.filters[prop] = true;
+                    break;
+                case "checked":
+                    this.checked = false;
+                    this.setAttribute("state", "unchecked");
+                    instance.filters[prop] = false;
+                    break;
+                case "unchecked":
+                    this.indeterminate = true;
+                    delete instance.filters[prop];
+                    this.setAttribute("state", "none");
+                    break;
                 }
                 ev.stopPropagation();
                 globalStore.fn.applyFilter(instance);
@@ -376,22 +683,31 @@
             }
         }
     };
-    window.Browse = function (jsonPath, containerId, mapPreviewPrefix, urlSearch) {
+    window.Browse = function(jsonPath, containerId, mapPreviewPrefix, urlSearch){
         var container = document.getElementById(containerId), localStore = {
             isotopeData: {},
             authorList: [],
-            maxPlayTime: 0,
+            modList: [],
+            playTime: {
+                min: null,
+                max: 0,
+                currentMin: null,
+                currentMax: null
+            },
             search: null,
             filters: {},
             isotope: null,
+            lazyLoad: null,
+            lazyImgs: null,
             container: container,
-            mapPreviewPrefix: mapPreviewPrefix
+            mapPreviewPrefix: mapPreviewPrefix,
+            order: "suborder"
         }
-
-        if (localStore.container) {
+        
+        if (localStore.container){
             localStore.container.innerHTML = "Downloading map data...";
             var xhr = new XMLHttpRequest();
-            xhr.onreadystatechange = function (event) {
+            xhr.onreadystatechange = function(event){
                 if (this.readyState === XMLHttpRequest.DONE) {
                     if (this.status > 199 && this.status < 300) {
                         try {
@@ -413,4 +729,4 @@
             window.console.error("No container");
         }
     };
-})(window, document, window.Isotope, window.noUiSlider, window.history);
+})(window, document, window.Isotope, window.noUiSlider, window.history, window.jQuery);
